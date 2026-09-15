@@ -1,8 +1,10 @@
 -- cl_init.lua
 include("shared.lua")
-
 print("[CVSR] Cliente inicializado com sucesso!")
 
+-- ====================================================
+-- 1. HUD DA TELA
+-- ====================================================
 local hideElements = { ["CHudHealth"] = true, ["CHudBattery"] = true }
 hook.Add("HUDShouldDraw", "CVSR_HideDefaultHUD", function(name)
     if hideElements[name] then return false end
@@ -12,7 +14,6 @@ hook.Add("HUDPaint", "CVSR_DrawHUD", function()
     local ply = LocalPlayer()
     if not IsValid(ply) then return end
 
-    -- 1. PLACAR E TIMER
     local combineScore = team.GetScore(TEAM_COMBINE)
     local rebelScore   = team.GetScore(TEAM_REBELS)
     local remaining    = math.max(0, GetGlobalFloat("CVSR_MatchEndTime", 0) - CurTime())
@@ -23,23 +24,22 @@ hook.Add("HUDPaint", "CVSR_DrawHUD", function()
     local startY = 20
 
     draw.RoundedBoxEx(8, startX, startY, scoreBoxW, boxH, Color(30, 144, 255, 220), true, false, true, false)
-    draw.SimpleText(combineScore, "Trebuchet24", startX + (scoreBoxW / 2), startY + 6, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+    draw.SimpleText(combineScore, "Trebuchet24", startX + (scoreBoxW / 2), startY + 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
 
     local timerX = startX + scoreBoxW
     draw.RoundedBox(0, timerX, startY, timerBoxW, boxH, Color(15, 15, 15, 230))
-    local timerColor = (remaining <= 30) and Color(255, 60, 60) or Color(255, 255, 255)
+    local timerColor = (remaining <= 30) and Color(255, 60, 60) or color_white
     draw.SimpleText(timeText, "Trebuchet24", timerX + (timerBoxW / 2), startY + 6, timerColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
 
     local rebelX = timerX + timerBoxW
     draw.RoundedBoxEx(8, rebelX, startY, scoreBoxW, boxH, Color(220, 20, 60, 220), false, true, false, true)
-    draw.SimpleText(rebelScore, "Trebuchet24", rebelX + (scoreBoxW / 2), startY + 6, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+    draw.SimpleText(rebelScore, "Trebuchet24", rebelX + (scoreBoxW / 2), startY + 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
 
-    -- 2. HUD DE VIDA
-    if not ply:Alive() then return end
+    if not ply:Alive() or (ply:Team() ~= TEAM_COMBINE and ply:Team() ~= TEAM_REBELS) then return end
     local hp = math.Clamp(ply:Health(), 0, 100)
     local teamID = ply:Team()
     local teamName = team.GetName(teamID) or "Sem Time"
-    local teamColor = team.GetColor(teamID) or Color(255, 255, 255)
+    local teamColor = team.GetColor(teamID) or color_white
 
     local x, y, width, height = 30, ScrH() - 110, 240, 75
     draw.RoundedBox(8, x, y, width, height, Color(15, 15, 15, 220))
@@ -50,89 +50,176 @@ hook.Add("HUDPaint", "CVSR_DrawHUD", function()
     if (hp / 100) * barW > 0 then
         draw.RoundedBox(4, barX, barY, (hp / 100) * barW, barH, Color(200, 40, 40, 230))
     end
-    draw.SimpleText(hp .. " / 100", "DermaDefaultBold", barX + (barW / 2), barY + 2, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+    draw.SimpleText(hp .. " / 100", "DermaDefaultBold", barX + (barW / 2), barY + 2, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
 end)
 
-----------------------------------------------------
--- INTERFACE DO MENU DE CLASSES (F2)
-----------------------------------------------------
-function OpenClassMenu()
-    local ply = LocalPlayer()
-    local teamID = ply:Team()
-    local options = CVSR_Loadouts and CVSR_Loadouts[teamID]
+-- ====================================================
+-- 2. MENU DE SELEÇÃO: TIME -> CLASSE -> EQUIPAMENTO
+-- ====================================================
+local menuAberto = nil
 
-    if not options then return end
+function AbrirMenuSelecao()
+    if IsValid(menuAberto) then menuAberto:Remove() end
 
-    local frame = vgui.Create("DFrame")
-    frame:SetSize(620, 420)
-    frame:Center()
-    frame:SetTitle("Seleção de Equipamento e Classe")
-    frame:MakePopup()
-
-    local modelPanel = vgui.Create("DModelPanel", frame)
-    modelPanel:SetPos(330, 40)
-    modelPanel:SetSize(270, 320)
-    modelPanel:SetModel(options.models[1])
-    modelPanel:SetCamPos(Vector(50, 0, 50))
-    modelPanel:SetLookAt(Vector(0, 0, 40))
-    modelPanel:SetFOV(50)
-
-    local selPrimary   = options.primaries[1].class
-    local selSecondary = options.secondaries[1].class
-    local selGadget    = options.gadgets[1].class
-    local selModel     = options.models[1]
-
-    local function CreateSelector(labelText, yPos, dataTable, onSelect)
-        local lbl = vgui.Create("DLabel", frame)
-        lbl:SetPos(20, yPos)
-        lbl:SetText(labelText)
-        lbl:SetFont("DermaDefaultBold")
-        lbl:SizeToContents()
-
-        local combo = vgui.Create("DComboBox", frame)
-        combo:SetPos(20, yPos + 18)
-        combo:SetSize(280, 28)
-        for _, item in ipairs(dataTable) do
-            combo:AddChoice(type(item) == "table" and item.name or item, type(item) == "table" and item.class or item)
-        end
-        combo:ChooseOptionID(1)
-        combo.OnSelect = function(s, idx, val, data) onSelect(data or val) end
+    menuAberto = vgui.Create("DFrame")
+    menuAberto:SetSize(600, 450)
+    menuAberto:Center()
+    menuAberto:SetTitle("")
+    menuAberto:MakePopup()
+    menuAberto:ShowCloseButton(true)
+    menuAberto.Paint = function(self, w, h)
+        draw.RoundedBox(8, 0, 0, w, h, Color(30, 30, 30, 240))
+        draw.SimpleText("ESCOLHA SUA FACÇÃO E CLASSE", "Trebuchet24", w/2, 15, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
     end
 
-    CreateSelector("Arma Primária:", 40, options.primaries, function(d) selPrimary = d end)
-    CreateSelector("Arma Secundária:", 100, options.secondaries, function(d) selSecondary = d end)
-    CreateSelector("Equipamento / Explosivo:", 160, options.gadgets, function(d) selGadget = d end)
-    CreateSelector("Modelo de Personagem:", 220, options.models, function(d) 
-        selModel = d
-        modelPanel:SetModel(d)
-    end)
+    local pnlTimes = vgui.Create("DPanel", menuAberto)
+    pnlTimes:Dock(FILL)
+    pnlTimes:DockMargin(0, 40, 0, 0)
+    pnlTimes.Paint = function() end
 
-    local btn = vgui.Create("DButton", frame)
-    btn:SetPos(20, 350)
-    btn:SetSize(580, 45)
-    btn:SetText("CONFIRMAR SELEÇÃO")
-    btn:SetFont("Trebuchet24")
-    btn.DoClick = function()
-        net.Start("CVSR_SelectLoadout")
-            net.WriteString(selPrimary)
-            net.WriteString(selSecondary)
-            net.WriteString(selGadget)
-            net.WriteString(selModel)
-        net.SendToServer()
-        frame:Close()
+    local pnlClasses = vgui.Create("DPanel", menuAberto)
+    pnlClasses:Dock(FILL)
+    pnlClasses:DockMargin(0, 40, 0, 0)
+    pnlClasses:SetVisible(false)
+    pnlClasses.Paint = function() end
+
+    local pnlEquip = vgui.Create("DPanel", menuAberto)
+    pnlEquip:Dock(FILL)
+    pnlEquip:DockMargin(0, 40, 0, 0)
+    pnlEquip:SetVisible(false)
+    pnlEquip.Paint = function() end
+
+    local timeSelecionado = nil
+
+    -- ================= TELA 1: TIMES =================
+    local btnCombine = vgui.Create("DButton", pnlTimes)
+    btnCombine:SetSize(250, 330)
+    btnCombine:SetPos(30, 20)
+    btnCombine:SetText("COMBINE")
+    btnCombine:SetFont("Trebuchet24")
+    btnCombine:SetTextColor(color_white)
+    btnCombine.Paint = function(self, w, h)
+        local corBg = self:IsHovered() and Color(70, 170, 255) or Color(30, 144, 255)
+        draw.RoundedBox(8, 0, 0, w, h, corBg)
+    end
+    btnCombine.DoClick = function()
+        timeSelecionado = TEAM_COMBINE
+        pnlTimes:SetVisible(false)
+        pnlClasses:SetVisible(true)
+    end
+
+    local btnRebelde = vgui.Create("DButton", pnlTimes)
+    btnRebelde:SetSize(250, 330)
+    btnRebelde:SetPos(320, 20)
+    btnRebelde:SetText("REBELDES")
+    btnRebelde:SetFont("Trebuchet24")
+    btnRebelde:SetTextColor(color_white)
+    btnRebelde.Paint = function(self, w, h)
+        local corBg = self:IsHovered() and Color(255, 70, 70) or Color(220, 20, 60)
+        draw.RoundedBox(8, 0, 0, w, h, corBg)
+    end
+    btnRebelde.DoClick = function()
+        timeSelecionado = TEAM_REBELS
+        pnlTimes:SetVisible(false)
+        pnlClasses:SetVisible(true)
+    end
+
+    -- ================= TELA 2: CLASSES =================
+    local listaClasses = {"assault", "support", "medic", "sniper"}
+    local yPos = 20
+
+    for _, idClasse in ipairs(listaClasses) do
+        local dadosClasse = CVSR_CLASSES[idClasse]
+        
+        local btnClasse = vgui.Create("DButton", pnlClasses)
+        btnClasse:SetSize(400, 60)
+        btnClasse:SetPos(100, yPos)
+        btnClasse:SetText(dadosClasse.nome)
+        btnClasse:SetFont("Trebuchet24")
+        btnClasse:SetTextColor(color_white)
+        btnClasse.Paint = function(self, w, h)
+            local corBg = self:IsHovered() and Color(100, 100, 100) or Color(50, 50, 50)
+            draw.RoundedBox(8, 0, 0, w, h, corBg)
+        end
+        btnClasse.DoClick = function()
+            pnlClasses:SetVisible(false)
+            pnlEquip:Clear()
+            pnlEquip:SetVisible(true)
+
+            -- ================= TELA 3: EQUIPAMENTOS =================
+            local lblTitle = vgui.Create("DLabel", pnlEquip)
+            lblTitle:SetText("EQUIPAMENTO: " .. string.upper(dadosClasse.nome))
+            lblTitle:SetFont("Trebuchet24")
+            lblTitle:SizeToContents()
+            lblTitle:SetPos(100, 10)
+
+            -- Variáveis padrão
+            local selPri = dadosClasse.primarias[1] and dadosClasse.primarias[1].class or ""
+            local selSec = dadosClasse.secundarias[1] and dadosClasse.secundarias[1].class or ""
+            local selGad = dadosClasse.gadgets[1] and dadosClasse.gadgets[1].class or ""
+
+            local function CriarCombo(texto, pos_Y, tabela, callback)
+                if not tabela or #tabela == 0 then return end
+                local l = vgui.Create("DLabel", pnlEquip)
+                l:SetText(texto)
+                l:SetPos(100, pos_Y)
+                l:SetSize(400, 20)
+                
+                local c = vgui.Create("DComboBox", pnlEquip)
+                c:SetPos(100, pos_Y + 20)
+                c:SetSize(400, 30)
+                for _, item in ipairs(tabela) do
+                    c:AddChoice(item.nome, item.class)
+                end
+                c:ChooseOptionID(1)
+                c.OnSelect = function(_, _, _, data) callback(data) end
+            end
+
+            CriarCombo("Arma Primária:", 50, dadosClasse.primarias, function(d) selPri = d end)
+            CriarCombo("Arma Secundária:", 120, dadosClasse.secundarias, function(d) selSec = d end)
+            CriarCombo("Gadgets / Explosivos:", 190, dadosClasse.gadgets, function(d) selGad = d end)
+
+            -- Botão Confirmar
+            local btnConfirm = vgui.Create("DButton", pnlEquip)
+            btnConfirm:SetPos(100, 270)
+            btnConfirm:SetSize(400, 50)
+            btnConfirm:SetText("CONFIRMAR E JOGAR")
+            btnConfirm:SetFont("Trebuchet24")
+            btnConfirm:SetTextColor(color_white)
+            btnConfirm.Paint = function(self, w, h)
+                draw.RoundedBox(8, 0, 0, w, h, self:IsHovered() and Color(0, 180, 80) or Color(0, 150, 50))
+            end
+            btnConfirm.DoClick = function()
+                net.Start("CVSR_ReceberEscolha")
+                    net.WriteInt(timeSelecionado, 4)
+                    net.WriteString(idClasse)
+                    net.WriteString(selPri)
+                    net.WriteString(selSec)
+                    net.WriteString(selGad)
+                net.SendToServer()
+                menuAberto:Close()
+            end
+            
+            -- Botão Voltar
+            local btnVoltar = vgui.Create("DButton", pnlEquip)
+            btnVoltar:SetPos(100, 330)
+            btnVoltar:SetSize(400, 30)
+            btnVoltar:SetText("VOLTAR")
+            btnVoltar.DoClick = function()
+                pnlEquip:SetVisible(false)
+                pnlClasses:SetVisible(true)
+            end
+        end
+        yPos = yPos + 75
     end
 end
 
--- Recebe o sinal do servidor para abrir o menu quando F2 for pressionado
-net.Receive("CVSR_OpenClassMenu", function()
-    OpenClassMenu()
-end)
+net.Receive("CVSR_AbrirMenu", function() AbrirMenuSelecao() end)
+concommand.Add("cvsr_menu", function() AbrirMenuSelecao() end)
 
-concommand.Add("cvsr_menu", function() OpenClassMenu() end)
-
-----------------------------------------------------
--- INTERFACE DE VOTAÇÃO DE MAPA (RTV)
-----------------------------------------------------
+-- ====================================================
+-- 3. INTERFACE DE VOTAÇÃO DE MAPA
+-- ====================================================
 net.Receive("CVSR_StartMapVote", function()
     local maps = net.ReadTable()
     local voteEndTime = net.ReadFloat()
