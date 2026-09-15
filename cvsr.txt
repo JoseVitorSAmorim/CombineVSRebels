@@ -1,0 +1,10 @@
+"cvsr"
+{
+	"title"		"Combine vs Rebels"
+	"summary"	"Gamemode PVP de combate entre Combines e Rebeldes."
+	"author"	"Posterghost"
+	"version"	"1.0"
+	"base"		"base"
+	"menusystem"	"1"
+	"maps"		"^gm_|^cs_|^de_"
+}
