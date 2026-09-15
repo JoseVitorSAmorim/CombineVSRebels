@@ -7,4 +7,5 @@
 	"base"		"base"
 	"menusystem"	"1"
 	"maps"		"^gm_|^cs_|^de_"
+	"category"	"pvp"
 }
