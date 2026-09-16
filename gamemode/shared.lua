@@ -67,7 +67,7 @@ CVSR_CLASSES = {
             { nome = "Pistola 9mm", class = "weapon_pistol" }
         },
         gadgets = {
-            { nome = "Stunstick (Kit Médico)", class = "weapon_stunstick" }
+            { nome = "Kit Médico", class = "weapon_medkit" }
         }
     },
     ["sniper"]  = {
