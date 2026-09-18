@@ -141,10 +141,13 @@ function AbrirMenuSelecao()
             local corBg = self:IsHovered() and Color(100, 100, 100) or Color(50, 50, 50)
             draw.RoundedBox(8, 0, 0, w, h, corBg)
         end
-        btnClasse.DoClick = function()
+btnClasse.DoClick = function()
             pnlClasses:SetVisible(false)
             pnlEquip:Clear()
             pnlEquip:SetVisible(true)
+
+            -- Busca os equipamentos baseados no time escolhido na Tela 1
+            local equipDoTime = dadosClasse.equipamentos[timeSelecionado]
 
             -- ================= TELA 3: EQUIPAMENTOS =================
             local lblTitle = vgui.Create("DLabel", pnlEquip)
@@ -153,10 +156,10 @@ function AbrirMenuSelecao()
             lblTitle:SizeToContents()
             lblTitle:SetPos(100, 10)
 
-            -- Variáveis padrão
-            local selPri = dadosClasse.primarias[1] and dadosClasse.primarias[1].class or ""
-            local selSec = dadosClasse.secundarias[1] and dadosClasse.secundarias[1].class or ""
-            local selGad = dadosClasse.gadgets[1] and dadosClasse.gadgets[1].class or ""
+            -- Variáveis padrão pegando as armas específicas do time
+            local selPri = equipDoTime.primarias[1] and equipDoTime.primarias[1].class or ""
+            local selSec = equipDoTime.secundarias[1] and equipDoTime.secundarias[1].class or ""
+            local selGad = equipDoTime.gadgets[1] and equipDoTime.gadgets[1].class or ""
 
             local function CriarCombo(texto, pos_Y, tabela, callback)
                 if not tabela or #tabela == 0 then return end
@@ -175,11 +178,12 @@ function AbrirMenuSelecao()
                 c.OnSelect = function(_, _, _, data) callback(data) end
             end
 
-            CriarCombo("Arma Primária:", 50, dadosClasse.primarias, function(d) selPri = d end)
-            CriarCombo("Arma Secundária:", 120, dadosClasse.secundarias, function(d) selSec = d end)
-            CriarCombo("Gadgets / Explosivos:", 190, dadosClasse.gadgets, function(d) selGad = d end)
+            -- Passa a tabela de armas do time específico
+            CriarCombo("Arma Primária:", 50, equipDoTime.primarias, function(d) selPri = d end)
+            CriarCombo("Arma Secundária:", 120, equipDoTime.secundarias, function(d) selSec = d end)
+            CriarCombo("Gadgets / Explosivos:", 190, equipDoTime.gadgets, function(d) selGad = d end)
 
-            -- Botão Confirmar
+            -- Botão Confirmar continua igual...
             local btnConfirm = vgui.Create("DButton", pnlEquip)
             btnConfirm:SetPos(100, 270)
             btnConfirm:SetSize(400, 50)
@@ -200,7 +204,6 @@ function AbrirMenuSelecao()
                 menuAberto:Close()
             end
             
-            -- Botão Voltar
             local btnVoltar = vgui.Create("DButton", pnlEquip)
             btnVoltar:SetPos(100, 330)
             btnVoltar:SetSize(400, 30)
