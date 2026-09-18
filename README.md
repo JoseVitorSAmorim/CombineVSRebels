@@ -92,8 +92,21 @@ Coloque a pasta do gamemode no diretório `garrysmod/gamemodes/cvsr/`.
 garrysmod/
 └── gamemodes/
     └── cvsr/
+        ├── entities/
+        |   ├── weapons/
+        |       ├── weapon_cvsr_ammobox.lua  -- Arquivo da AmmoBox
         ├── gamemode/
         │   ├── shared.lua    -- Definição de times, variáveis globais e loadouts
         │   ├── init.lua      -- Lógica do servidor, spawns, regras de partida e RTV
         │   └── cl_init.lua   -- Interface visual (HUD), menus Derma e recepção de pacotes
         └── cvsr.txt          -- Arquivo de manifesto do Gamemode
+```
+
+### Addons requeridos:
+| Addon | Autor(es) | Link |
+| :--- | :--- | :--- |
+| Black Ops C4 (Sandbox) | Hoff | https://steamcommunity.com/sharedfiles/filedetails/?id=297646940 |
+| ARC9 Weapon Base | Arctic, Darsu, Feslug, maladesov, Midawek, Moka, Sepnny Tommy / M541, Twilight Sparkle, 8Z | https://steamcommunity.com/sharedfiles/filedetails/?id=2910505837 |
+| [ARC9] Gunsmith Arms: Source | Arctic | https://steamcommunity.com/sharedfiles/filedetails/?id=2910527565 |
+| [ARC9] Escape from Tarkov SHARED | Darsu, Mal0, Moka | https://steamcommunity.com/sharedfiles/filedetails/?id=2917343547 |
+| [ARC9] EFT Explosives | Darsu | https://steamcommunity.com/sharedfiles/filedetails/?id=3010049092 |
