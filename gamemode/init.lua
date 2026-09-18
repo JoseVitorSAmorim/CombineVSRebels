@@ -8,7 +8,7 @@ util.AddNetworkString("CVSR_ReceberEscolha")
 util.AddNetworkString("CVSR_StartMapVote")
 util.AddNetworkString("CVSR_SubmitMapVote")
 
-cvsr_Spawns = cvsr_Spawns or { [TEAM_COMBINE] = {}, [TEAM_REBELS]  = {} }
+cvsr_Spawns = cvsr_Spawns or { [TEAM_COMBINE] = {}, [TEAM_REBELS] = {} }
 
 local function GetSpawnFilePath() return "cvsr_spawns/" .. game.GetMap() .. ".json" end
 
@@ -42,9 +42,20 @@ hook.Add("InitPostEntity", "CVSR_LoadSpawnsOnInit", function()
     StartMatchTimer()
 end)
 
+-- ====================================================
+-- CONTROLE DE CONEXÃO E MENU
+-- ====================================================
 function GM:PlayerInitialSpawn(ply)
     ply:SetTeam(TEAM_UNASSIGNED)
-    timer.Simple(1.5, function() if IsValid(ply) then net.Start("CVSR_AbrirMenu") net.Send(ply) end end)
+    ply:Spectate(OBS_MODE_ROAMING)
+    ply:SetNoDraw(true)
+    
+    timer.Simple(1.5, function() 
+        if IsValid(ply) then 
+            net.Start("CVSR_AbrirMenu") 
+            net.Send(ply) 
+        end 
+    end)
 end
 
 function GM:ShowTeam(ply)
@@ -52,36 +63,44 @@ function GM:ShowTeam(ply)
     net.Send(ply)
 end
 
--- Recebe a escolha do menu do cliente e aplica a REGRA DO RESPAWN
+-- ====================================================
+-- SISTEMA DE FILA DE CLASSE (TROCA APENAS AO MORRER)
+-- ====================================================
 net.Receive("CVSR_ReceberEscolha", function(len, ply)
-    local timeEscolhido = net.ReadInt(4)
-    local classeEscolhida = net.ReadString()
-    local armaPri = net.ReadString()
-    local armaSec = net.ReadString()
-    local armaGad = net.ReadString()
+    local time = net.ReadInt(4)
+    local classe = net.ReadString()
+    local pri = net.ReadString()
+    local sec = net.ReadString()
+    local gad = net.ReadString()
 
-    if timeEscolhido == TEAM_COMBINE or timeEscolhido == TEAM_REBELS then
-        -- Salva as escolhas na "fila de espera" do jogador
-        ply.NextTeam = timeEscolhido
-        ply.NextClasse = classeEscolhida
-        ply.NextLoadout = { armaPri, armaSec, armaGad }
-        
-        -- Se estiver sem time ou estiver morto, spawna instantaneamente
-        if ply:Team() == TEAM_UNASSIGNED or not ply:Alive() then
-            ply:SetTeam(timeEscolhido)
-            ply:Spawn()
-            ply:PrintMessage(HUD_PRINTTALK, "[CVSR] Você entrou de " .. CVSR_CLASSES[classeEscolhida].nome .. "!")
-        else
-            -- Se estiver vivo, avisa que vai mudar quando morrer
-            ply:PrintMessage(HUD_PRINTTALK, "[CVSR] Alterações salvas! Sua nova classe/arma será aplicada quando você renascer.")
-        end
+    if not CVSR_CLASSES[classe] then return end
+
+    -- Salva as escolhas na "fila" para o próximo respawn
+    ply.NextTeam = time
+    ply.NextClasse = classe
+    ply.NextPri = pri
+    ply.NextSec = sec
+    ply.NextGad = gad
+
+    -- Se o jogador acabou de entrar, ou já está morto, spawna agora.
+    if ply:Team() == TEAM_UNASSIGNED or not ply:Alive() or ply:GetObserverMode() ~= OBS_MODE_NONE then
+        ply:Spawn()
+    else
+        -- Se estiver vivo jogando, avisa que a troca vai pra fila
+        ply:PrintMessage(HUD_PRINTTALK, "[CVSR] Sua nova classe será aplicada no próximo respawn!")
     end
 end)
 
--- Processo de spawn
+-- ====================================================
+-- PROCESSO DE SPAWN (MODELO E ARMAS)
+-- ====================================================
 function GM:PlayerSpawn(ply)
-    -- Aplica as mudanças da "Fila de espera" se houver
+    -- Aplica as mudanças que estavam na fila
     if ply.NextTeam then ply:SetTeam(ply.NextTeam); ply.NextTeam = nil end
+    if ply.NextClasse then ply.CVSR_ClasseSelecionada = ply.NextClasse; ply.NextClasse = nil end
+    if ply.NextPri then ply.CVSR_Pri = ply.NextPri; ply.NextPri = nil end
+    if ply.NextSec then ply.CVSR_Sec = ply.NextSec; ply.NextSec = nil end
+    if ply.NextGad then ply.CVSR_Gad = ply.NextGad; ply.NextGad = nil end
 
     local teamID = ply:Team()
     if teamID ~= TEAM_COMBINE and teamID ~= TEAM_REBELS then
@@ -89,39 +108,12 @@ function GM:PlayerSpawn(ply)
         return
     else
         ply:UnSpectate()
+        ply:SetNoDraw(false)
     end
 
     self.BaseClass:PlayerSpawn(ply)
-    ply:StripWeapons()
-    ply:RemoveAllAmmo()
 
-    if CVSR_TEAM_MODELS[teamID] then ply:SetModel(table.Random(CVSR_TEAM_MODELS[teamID])) end
-    ply:SetupHands()
-
-    -- Pega a classe/loadout da fila de espera, ou mantém a atual
-    local classe = ply.NextClasse or ply.ClasseAtual
-    local loadout = ply.NextLoadout or ply.LoadoutAtual
-
-    if classe and CVSR_CLASSES[classe] and loadout then
-        ply.ClasseAtual = classe
-        ply.LoadoutAtual = loadout
-        ply.NextClasse = nil
-        ply.NextLoadout = nil
-
-        for _, wepClass in ipairs(loadout) do
-            if wepClass and wepClass ~= "" then
-                local wep = ply:Give(wepClass)
-                if IsValid(wep) and wep:GetPrimaryAmmoType() > 0 then
-                    ply:GiveAmmo(150, wep:GetPrimaryAmmoType(), true)
-                end
-            end
-        end
-        ply:Give("weapon_crowbar")
-        ply:Give("weapon_physcannon")
-    else
-        ply:Give("weapon_pistol")
-    end
-
+    -- Teleporta para o spawn customizado se existir
     if cvsr_Spawns[teamID] and #cvsr_Spawns[teamID] > 0 then
         local randomSpawn = table.Random(cvsr_Spawns[teamID])
         local p, a = randomSpawn.pos, randomSpawn.ang
@@ -130,9 +122,56 @@ function GM:PlayerSpawn(ply)
     end
 end
 
-----------------------------------------------------
--- COMANDOS E VOTAÇÃO DE MAPA
-----------------------------------------------------
+-- Define o modelo 3D baseado na classe atual
+function GM:PlayerSetModel(ply)
+    local classe = ply.CVSR_ClasseSelecionada
+    local time = ply:Team()
+
+    if classe and CVSR_CLASSES[classe] and CVSR_CLASSES[classe].modelos[time] then
+        local modelo = CVSR_CLASSES[classe].modelos[time]
+        util.PrecacheModel(modelo)
+        ply:SetModel(modelo)
+        ply:SetupHands()
+    else
+        ply:SetModel("models/player/kleiner.mdl")
+    end
+end
+
+-- Entrega as armas baseadas na classe atual
+function GM:PlayerLoadout(ply)
+    if not ply.CVSR_ClasseSelecionada then return true end
+
+    ply:StripWeapons()
+    ply:StripAmmo()
+    ply:Give("weapon_crowbar")
+
+    -- Detecta automaticamente o tipo de munição da arma primária (ARC9 compatível)
+    if ply.CVSR_Pri and ply.CVSR_Pri ~= "" then 
+        local wep = ply:Give(ply.CVSR_Pri)
+        if IsValid(wep) and wep:GetPrimaryAmmoType() > 0 then
+            ply:GiveAmmo(150, wep:GetPrimaryAmmoType(), true)
+        end
+    end
+
+    -- Detecta munição da arma secundária
+    if ply.CVSR_Sec and ply.CVSR_Sec ~= "" then 
+        local wep = ply:Give(ply.CVSR_Sec)
+        if IsValid(wep) and wep:GetPrimaryAmmoType() > 0 then
+            ply:GiveAmmo(60, wep:GetPrimaryAmmoType(), true)
+        end
+    end
+
+    -- Entrega o Gadget
+    if ply.CVSR_Gad and ply.CVSR_Gad ~= "" then 
+        ply:Give(ply.CVSR_Gad) 
+    end
+
+    return true
+end
+
+-- ====================================================
+-- SISTEMA RTV E SCORE
+-- ====================================================
 function GM:PlayerSay(ply, text, teamonly)
     local msg = string.lower(string.Trim(text))
     if msg == "!rtv" or msg == "rtv" then TriggerRTV(ply); return "" end
