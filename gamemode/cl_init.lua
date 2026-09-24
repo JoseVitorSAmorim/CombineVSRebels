@@ -6,12 +6,10 @@ print("[CVSR] Cliente inicializado com sucesso!")
 -- 1. HUD DA TELA
 -- ====================================================
 RunConsoleCommand("arc9_hud_arc9", "0")
+local matCombine = Material("cvsr/combine_logo.png", "noclamp smooth")
+local matRebel = Material("cvsr/rebel_logo.png", "noclamp smooth")
 
-local hideElements = { ["CHudHealth"] = true, ["CHudBattery"] = true, ["CHudAmmo"] = true,
-    ["CHudSecondaryAmmo"] = true }
-hook.Add("HUDShouldDraw", "CVSR_HideDefaultHUD", function(name)
-    if hideElements[name] then return false end
-end)
+local hideElements = { ["CHudHealth"] = true, ["CHudBattery"] = true, ["CHudAmmo"] = true, ["CHudSecondaryAmmo"] = true }
 
 surface.CreateFont("CVSR_FontHUD", { font = "Trebuchet MS", size = 24, weight = 800 })
 surface.CreateFont("CVSR_FontMini", { font = "Trebuchet MS", size = 18, weight = 600 })
@@ -30,18 +28,20 @@ hook.Add("HUDPaint", "CVSR_CustomHUD", function()
     local scrW, scrH = ScrW(), ScrH()
 
     -- ==========================================
-    -- TIME DO JOGADOR (Mostra a qual time você pertence)
+    -- LOGO DO TIME DO JOGADOR
     -- ==========================================
     local meuTimeID = ply:Team()
-    
-    -- Caso o time ainda não tenha carregado, evita erros
     if meuTimeID == TEAM_UNASSIGNED or not meuTimeID then return end 
 
-    local nomeTime = team.GetName(meuTimeID)
-    local corTime = team.GetColor(meuTimeID)
+    surface.SetDrawColor(255, 255, 255, 255)
 
-    draw.RoundedBox(8, 20, scrH - 120, 200, 30, Color(0, 0, 0, 200))
-    draw.SimpleText("TIME: " .. string.upper(nomeTime), "CVSR_FontMini", 120, scrH - 105, corTime, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+    if meuTimeID == TEAM_COMBINE then
+        surface.SetMaterial(matCombine)
+        surface.DrawTexturedRect(20, scrH - 150, 64, 64) 
+    elseif meuTimeID == TEAM_REBELS then
+        surface.SetMaterial(matRebel)
+        surface.DrawTexturedRect(20, scrH - 150, 64, 64)
+    end
 
     -- ==========================================
     -- VIDA DO JOGADOR
@@ -53,12 +53,10 @@ hook.Add("HUDPaint", "CVSR_CustomHUD", function()
     -- ==========================================
     -- PLACAR E TIMER (Sincronizado com init.lua)
     -- ==========================================
-    -- Pega o GlobalFloat definido no StartMatchTimer() do seu init.lua
     local matchEndTime = GetGlobalFloat("CVSR_MatchEndTime", 0)
     local tempoRestante = 0
     
     if matchEndTime > 0 then
-        -- Subtrai o tempo final pelo tempo atual para fazer a contagem regressiva
         tempoRestante = math.max(0, math.ceil(matchEndTime - CurTime()))
     end
 
@@ -66,23 +64,16 @@ hook.Add("HUDPaint", "CVSR_CustomHUD", function()
     local sec = tempoRestante % 60
     local tempoFormatado = string.format("%02d:%02d", min, sec)
 
-    -- Pega a pontuação atualizada nativamente pelo team.AddScore()
     local ptsCombine = team.GetScore(TEAM_COMBINE) or 0
     local ptsRebel = team.GetScore(TEAM_REBELS) or 0
 
     draw.RoundedBox(8, scrW / 2 - 150, 10, 300, 50, Color(0, 0, 0, 200))
-    
-    -- Pontos Combine (Esquerda)
-    draw.SimpleText(ptsCombine, "CVSR_FontPlacar", scrW / 2 - 100, 35, Color(30, 144, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-    
-    -- Timer (Centro)
+    draw.SimpleText(ptsCombine, "CVSR_FontPlacar", scrW / 2 - 100, 35, team.GetColor(TEAM_COMBINE), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     draw.SimpleText(tempoFormatado, "CVSR_FontHUD", scrW / 2, 35, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-    
-    -- Pontos Rebeldes (Direita)
-    draw.SimpleText(ptsRebel, "CVSR_FontPlacar", scrW / 2 + 100, 35, Color(220, 20, 60), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+    draw.SimpleText(ptsRebel, "CVSR_FontPlacar", scrW / 2 + 100, 35, team.GetColor(TEAM_REBELS), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
     -- ==========================================
-    -- MUNIÇÃO E ARMA (Integração ARC9 Correta)
+    -- MUNIÇÃO E ARMA (Integração ARC9)
     -- ==========================================
     local wep = ply:GetActiveWeapon()
     if IsValid(wep) then
@@ -90,27 +81,43 @@ hook.Add("HUDPaint", "CVSR_CustomHUD", function()
         local ammo = ply:GetAmmoCount(wep:GetPrimaryAmmoType())
 
         if clip >= 0 then
-            -- Fundo da Munição
             draw.RoundedBox(8, scrW - 250, scrH - 80, 230, 60, Color(0, 0, 0, 200))
             draw.SimpleText("MUNIÇÃO", "CVSR_FontMini", scrW - 135, scrH - 65, Color(150, 150, 150), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
             draw.SimpleText(clip .. " / " .. ammo, "CVSR_FontHUD", scrW - 135, scrH - 40, Color(255, 200, 0), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
-            -- Descobrir Modo de Disparo do ARC9
+            -- Tradutor de modos de disparo do ARC9
             local modoDisparo = "AUTO"
             if wep.ARC9 then
-                if wep.GetFiremodeText then
-                    modoDisparo = wep:GetFiremodeText() or "AUTO"
-                elseif wep.GetCurrentFiremodeTable then
+                local rawMode = nil
+                if wep.GetCurrentFiremodeTable then
                     local fmTable = wep:GetCurrentFiremodeTable()
                     if fmTable then
-                        modoDisparo = fmTable.PrintName or fmTable.Mode or "AUTO"
+                        rawMode = fmTable.PrintName or fmTable.Mode
                     end
                 end
-                -- Garante que sempre seja um texto em maiúsculo
-                modoDisparo = string.upper(tostring(modoDisparo))
+                if not rawMode and wep.GetFiremodeText then
+                    rawMode = wep:GetFiremodeText()
+                end
+
+                local strMode = tostring(rawMode or ""):lower()
+
+                if strMode == "-1" or strMode == "auto" or strMode == "automatic" then
+                    modoDisparo = "AUTO"
+                elseif strMode == "1" or strMode == "semi" or strMode == "single" then
+                    modoDisparo = "SEMI"
+                elseif strMode == "0" or strMode == "safe" then
+                    modoDisparo = "SAFE"
+                elseif strMode == "2" or strMode == "2-burst" then
+                    modoDisparo = "2-BURST"
+                elseif strMode == "3" or strMode == "3-burst" or strMode == "burst" then
+                    modoDisparo = "BURST"
+                elseif tonumber(strMode) and tonumber(strMode) > 1 then
+                    modoDisparo = strMode .. "-BURST"
+                elseif rawMode then
+                    modoDisparo = string.upper(tostring(rawMode))
+                end
             end
 
-            -- Fundo do Modo de Disparo
             draw.RoundedBox(8, scrW - 250, scrH - 120, 100, 30, Color(0, 0, 0, 200))
             draw.SimpleText(modoDisparo, "CVSR_FontMini", scrW - 200, scrH - 105, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
         end
@@ -156,6 +163,8 @@ function AbrirMenuSelecao()
     local timeSelecionado = nil
 
     -- ================= TELA 1: TIMES =================
+    
+    -- Botão Combine
     local btnCombine = vgui.Create("DButton", pnlTimes)
     btnCombine:SetSize(250, 330)
     btnCombine:SetPos(30, 20)
@@ -163,7 +172,7 @@ function AbrirMenuSelecao()
     btnCombine:SetFont("Trebuchet24")
     btnCombine:SetTextColor(color_white)
     btnCombine.Paint = function(self, w, h)
-        local corBg = self:IsHovered() and Color(70, 170, 255) or Color(30, 144, 255)
+        local corBg = self:IsHovered() and Color(0, 0, 0) or Color(192, 135, 25)
         draw.RoundedBox(8, 0, 0, w, h, corBg)
     end
     btnCombine.DoClick = function()
@@ -172,6 +181,14 @@ function AbrirMenuSelecao()
         pnlClasses:SetVisible(true)
     end
 
+    -- Logo Combine atrelada ao botão Combine (centralizada matematicamente)
+    local iconCombine = vgui.Create("DImage", btnCombine)
+    iconCombine:SetSize(80, 80)
+    iconCombine:SetPos((250 - 80) / 2, 40)
+    iconCombine:SetMaterial("cvsr/combine_logo.png")
+    iconCombine:SetImageColor(Color(255, 255, 255, 255))
+
+    -- Botão Rebelde
     local btnRebelde = vgui.Create("DButton", pnlTimes)
     btnRebelde:SetSize(250, 330)
     btnRebelde:SetPos(320, 20)
@@ -179,7 +196,7 @@ function AbrirMenuSelecao()
     btnRebelde:SetFont("Trebuchet24")
     btnRebelde:SetTextColor(color_white)
     btnRebelde.Paint = function(self, w, h)
-        local corBg = self:IsHovered() and Color(255, 70, 70) or Color(220, 20, 60)
+        local corBg = self:IsHovered() and Color(0, 0, 0) or Color(255, 168, 0)
         draw.RoundedBox(8, 0, 0, w, h, corBg)
     end
     btnRebelde.DoClick = function()
@@ -187,6 +204,13 @@ function AbrirMenuSelecao()
         pnlTimes:SetVisible(false)
         pnlClasses:SetVisible(true)
     end
+
+    -- Logo Rebelde atrelada ao botão Rebelde (centralizada matematicamente)
+    local iconRebel = vgui.Create("DImage", btnRebelde)
+    iconRebel:SetSize(80, 80)
+    iconRebel:SetPos((250 - 80) / 2, 40)
+    iconRebel:SetMaterial("cvsr/rebel_logo.png")
+    iconRebel:SetImageColor(Color(255, 255, 255, 255))
 
     -- ================= TELA 2: CLASSES =================
     local listaClasses = {"assault", "support", "medic", "sniper"}
@@ -205,12 +229,11 @@ function AbrirMenuSelecao()
             local corBg = self:IsHovered() and Color(100, 100, 100) or Color(50, 50, 50)
             draw.RoundedBox(8, 0, 0, w, h, corBg)
         end
-btnClasse.DoClick = function()
+        btnClasse.DoClick = function()
             pnlClasses:SetVisible(false)
             pnlEquip:Clear()
             pnlEquip:SetVisible(true)
 
-            -- Busca os equipamentos baseados no time escolhido na Tela 1
             local equipDoTime = dadosClasse.equipamentos[timeSelecionado]
 
             -- ================= TELA 3: EQUIPAMENTOS =================
@@ -220,7 +243,6 @@ btnClasse.DoClick = function()
             lblTitle:SizeToContents()
             lblTitle:SetPos(100, 10)
 
-            -- Variáveis padrão pegando as armas específicas do time
             local selPri = equipDoTime.primarias[1] and equipDoTime.primarias[1].class or ""
             local selSec = equipDoTime.secundarias[1] and equipDoTime.secundarias[1].class or ""
             local selGad = equipDoTime.gadgets[1] and equipDoTime.gadgets[1].class or ""
@@ -242,12 +264,10 @@ btnClasse.DoClick = function()
                 c.OnSelect = function(_, _, _, data) callback(data) end
             end
 
-            -- Passa a tabela de armas do time específico
             CriarCombo("Arma Primária:", 50, equipDoTime.primarias, function(d) selPri = d end)
             CriarCombo("Arma Secundária:", 120, equipDoTime.secundarias, function(d) selSec = d end)
             CriarCombo("Gadgets / Explosivos:", 190, equipDoTime.gadgets, function(d) selGad = d end)
 
-            -- Botão Confirmar continua igual...
             local btnConfirm = vgui.Create("DButton", pnlEquip)
             btnConfirm:SetPos(100, 270)
             btnConfirm:SetSize(400, 50)
@@ -285,7 +305,7 @@ net.Receive("CVSR_AbrirMenu", function() AbrirMenuSelecao() end)
 concommand.Add("cvsr_menu", function() AbrirMenuSelecao() end)
 
 -- ====================================================
--- 3. INTERFACE DE VOTAÇÃO DE MAPA
+-- 3. INTERFACE DE VOTAÇÃO DE MAPA E MATCH END
 -- ====================================================
 net.Receive("CVSR_StartMapVote", function()
     local maps = net.ReadTable()
@@ -333,7 +353,6 @@ net.Receive("CVSR_MatchEnd", function()
     local winner = net.ReadInt(4)
     local myTeam = LocalPlayer():Team()
 
-    -- Cria o Painel
     local frame = vgui.Create("DFrame")
     frame:SetSize(400, 200)
     frame:Center()
@@ -341,49 +360,44 @@ net.Receive("CVSR_MatchEnd", function()
     frame:ShowCloseButton(false)
     frame:MakePopup()
 
-    -- Texto principal (Vitória, Derrota ou Empate)
     local statusLabel = vgui.Create("DLabel", frame)
     statusLabel:SetFont("DermaLarge")
     statusLabel:SetSize(400, 50)
     statusLabel:SetPos(0, 60)
-    statusLabel:SetContentAlignment(5) -- Centraliza o texto
+    statusLabel:SetContentAlignment(5)
 
-    -- Subtexto (Ex: "Os Combine venceram")
     local descLabel = vgui.Create("DLabel", frame)
     descLabel:SetFont("Trebuchet24")
     descLabel:SetSize(400, 40)
     descLabel:SetPos(0, 110)
     descLabel:SetContentAlignment(5)
 
-    -- Customiza o fundo do painel
     frame.Paint = function(self, w, h)
         draw.RoundedBox(8, 0, 0, w, h, Color(30, 30, 30, 240))
         draw.RoundedBoxEx(8, 0, 0, w, 40, Color(15, 15, 15, 255), true, true, false, false)
         draw.SimpleText("FIM DE PARTIDA", "Trebuchet24", w/2, 20, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     end
 
-    -- Lógica de exibição baseada no resultado
     if winner == 0 then
         statusLabel:SetText("EMPATE!")
         statusLabel:SetTextColor(Color(200, 200, 200))
         descLabel:SetText("Nenhuma equipe obteve vantagem.")
-        surface.PlaySound("vo/coast/odessa/male01/nlo_cheer01.wav") -- Som genérico
+        surface.PlaySound("vo/coast/odessa/male01/nlo_cheer01.wav") 
         
     elseif winner == myTeam then
         statusLabel:SetText("VITÓRIA!")
         statusLabel:SetTextColor(Color(50, 255, 50))
         descLabel:SetText("Sua equipe venceu o combate.")
-        surface.PlaySound("ui/cyoa_objective_panel_anim_temp.wav") -- Som de sucesso (HL2)
+        surface.PlaySound("ui/cyoa_objective_panel_anim_temp.wav") 
         
     else
         statusLabel:SetText("DERROTA!")
         statusLabel:SetTextColor(Color(255, 50, 50))
         local enemyName = (winner == TEAM_COMBINE) and "Combine" or "Rebels"
         descLabel:SetText("Os " .. enemyName .. " venceram.")
-        surface.PlaySound("npc/overwatch/cityvoice/fcitadel_30secwarning.wav") -- Som de falha
+        surface.PlaySound("npc/overwatch/cityvoice/fcitadel_30secwarning.wav") 
     end
 
-    -- Fecha a janela sozinho pouco antes do Map Vote começar
     timer.Simple(9, function()
         if IsValid(frame) then frame:Remove() end
     end)
