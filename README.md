@@ -105,7 +105,6 @@ garrysmod/
 ### Addons requeridos:
 | Addon | Autor(es) | Link |
 | :--- | :--- | :--- |
-| Black Ops C4 (Sandbox) | Hoff | https://steamcommunity.com/sharedfiles/filedetails/?id=297646940 |
 | ARC9 Weapon Base | Arctic, Darsu, Feslug, maladesov, Midawek, Moka, Sepnny Tommy / M541, Twilight Sparkle, 8Z | https://steamcommunity.com/sharedfiles/filedetails/?id=2910505837 |
 | [ARC9] Gunsmith Arms: Source | Arctic | https://steamcommunity.com/sharedfiles/filedetails/?id=2910527565 |
 | [ARC9] Escape from Tarkov SHARED | Darsu, Mal0, Moka | https://steamcommunity.com/sharedfiles/filedetails/?id=2917343547 |
