@@ -4,12 +4,13 @@ GM.Author = "Posterghost"
 
 TEAM_COMBINE = 1
 TEAM_REBELS  = 2
+TEAM_UNASSIGNED = 1001
 
 function GM:CreateTeams()
-    team.SetUp(TEAM_COMBINE, "Combines", Color(30, 144, 255))
+    team.SetUp(TEAM_COMBINE, "Combines", Color(192, 135, 25))
     team.SetSpawnPoint(TEAM_COMBINE, "info_player_start")
 
-    team.SetUp(TEAM_REBELS, "Rebels", Color(220, 20, 60))
+    team.SetUp(TEAM_REBELS, "Rebels", Color(252, 109, 2))
     team.SetSpawnPoint(TEAM_REBELS, "info_player_start")
 end
 
@@ -46,12 +47,12 @@ CVSR_CLASSES = {
             [TEAM_COMBINE] = {
                 primarias = { { nome = "M249 SAW", class = "arc9_fas_m249" }, { nome = "M60", class = "arc9_fas_m60" }, { nome = "M3 Super", class = "arc9_fas_m3super90" }, { nome = "Remington 870", class = "arc9_fas_870" } },
                 secundarias = { { nome = "M1911", class = "arc9_fas_m1911" }, { nome = "Glock 20", class = "arc9_fas_g20" } },
-                gadgets = { { nome = "Ammobox (Caixa de Munição)", class = "weapon_cvsr_ammobox" }, { nome = "GL-40", class = "arc9_eft_fn40gl" }, { nome = "C4", class = "seal6-c4" } }
+                gadgets = { { nome = "Ammobox (Caixa de Munição)", class = "weapon_cvsr_ammobox" }, { nome = "GL-40", class = "arc9_eft_fn40gl" }, { nome = "SLAM", class = "weapon_slam" } }
             },
             [TEAM_REBELS] = {
                 primarias = { { nome = "RPK", class = "arc9_fas_rpk" }, { nome = "KS-23", class = "arc9_fas_ks23" }, { nome = "Saiga 12K", class = "arc9_fas_saiga" } },
                 secundarias = { { nome = "MP-443", class = "arc9_fas_grach" }, { nome = "OTs-33", class = "arc9_fas_ots33" } },
-                gadgets = { { nome = "Ammobox (Caixa de Munição)", class = "weapon_cvsr_ammobox" }, { nome = "M79 Thunder", class = "arc9_eft_m79" }, { nome = "RShG-12", class = "arc9_eft_rshg2" } }
+                gadgets = { { nome = "Ammobox (Caixa de Munição)", class = "weapon_cvsr_ammobox" }, { nome = "M79 Thunder", class = "arc9_fas_m79" }, { nome = "RShG-12", class = "arc9_eft_rshg2" } }
             }
         }
     },
