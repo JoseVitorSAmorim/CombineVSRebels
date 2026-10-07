@@ -27,9 +27,7 @@ Em **Combine vs Rebels (CVSR)**, os jogadores são divididos aleatoriamente entr
 
 - **HUD Customizada:** Exibe a vida atual do jogador, placar de eliminações dos dois times e o cronômetro da partida no topo da tela.
 - **Menu de Equipamentos e Classes (F2):** Interface Derma com visualização do modelo 3D em tempo real para escolha de armas primárias, secundárias, utilitários e skins do personagem.
-- **Sistema Persistente de Spawns:** Permite que administradores definam pontos de nascimento customizados para cada time por mapa, salvos automaticamente em formato JSON.
 - **Votação de Mapa & RTV:** Sistema automático de votação de mapa ao fim da partida ou quando a maioria dos jogadores solicita via `!rtv`.
-- **Atribuição Automática de Loadout:** Equipamentos selecionados no menu são aplicados automaticamente a cada respawn.
 
 ---
 
